@@ -61,13 +61,38 @@ oepm_paths = oepm_paths %>%
 depm_paths = depm_paths %>%
   filter(name %in% team_paths$name)
 
+# write into CSVs for manipulation in python
+write.csv(team_paths, "C:/Users/ethan/OneDrive/Fall 2023/MAN 337/team_paths.csv")
+write.csv(epm_paths, "C:/Users/ethan/OneDrive/Fall 2023/MAN 337/epm_paths.csv")
+write.csv(oepm_paths, "C:/Users/ethan/OneDrive/Fall 2023/MAN 337/oepm_paths.csv")
+write.csv(depm_paths, "C:/Users/ethan/OneDrive/Fall 2023/MAN 337/depm_paths.csv")
+
+# turn teams not in a relevant year into NA
+team_paths = team_paths %>%
+  mutate(tm14 = ifelse(`2014` == `2015`, NA, `2014`),
+         tm15 = ifelse(`2014` == `2015` & `2015` == `2016`, NA, `2015`),
+         tm16 = ifelse(`2015` == `2016` & `2016` == `2017`, NA, `2016`),
+         tm17 = ifelse(`2016` == `2017` & `2017` == `2018`, NA, `2017`),
+         tm18 = ifelse(`2017` == `2018` & `2018` == `2019`, NA, `2018`),
+         tm19 = ifelse(`2018` == `2019` & `2019` == `2020`, NA, `2019`),
+         tm20 = ifelse(`2019` == `2020` & `2020` == `2021`, NA, `2020`),
+         tm21 = ifelse(`2020` == `2021` & `2021` == `2022`, NA, `2021`),
+         tm22 = ifelse(`2021` == `2022` & `2022` == `2023`, NA, `2022`),
+         tm23 = ifelse(`2022` == `2023`, NA, `2023`)) %>%
+  select(-`2014`, -`2015`, -`2016`, -`2017`, -`2018`, -`2019`, -`2020`, -`2021`, -`2022`, -`2023`)
+
+# combine files
+paths = team_paths %>%
+  left_join(epm_paths, by = c("nba_id", "name"), suffix = c("", ".e")) %>%
+  left_join(oepm_paths, by = c("nba_id", "name"), suffix = c("", ".o")) %>%
+  left_join(depm_paths, by = c("nba_id", "name"), suffix = c("", ".d"))
 
 
 
-# final data set: player, old team, various EPMs, new team, various EPMs
+# ideal final data set columns: player, old team, various EPMs, new team, various EPMs
 
-# adjust for age
-# compare offensive vs defensive
+# adjust for age?
+# compare offensive vs defensive EPMs
 # compare team effect on negative vs positive players
 
 
