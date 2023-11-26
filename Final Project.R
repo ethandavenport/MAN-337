@@ -1,6 +1,7 @@
 
 library(tidyverse)
 library(tidyr)
+library(mosaic)
 
 # read in data sets
 epm23 = read.csv("C:/Users/ethan/OneDrive/Fall 2023/MAN 337/EPM_2023.csv")
