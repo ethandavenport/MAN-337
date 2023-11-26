@@ -2,6 +2,11 @@
 library(tidyverse)
 library(tidyr)
 library(mosaic)
+library(devtools)
+devtools::install_github("abresler/nbastatR")
+library(nbastatR)
+
+# DATA MUNGING 
 
 # read in data sets
 epm23 = read.csv("C:/Users/ethan/OneDrive/Fall 2023/MAN 337/EPM_2023.csv")
@@ -209,7 +214,7 @@ pdp = df %>% filter(old.depm > 0) # positive defensive players
 ndp = df %>% filter(old.depm < 0) # negative defensive players
 
 # rank teams by change in overall, offensive, or defensive EPM for some set of players
-df %>%
+otp = df %>%
   group_by(oldtm) %>%
   summarize(avg.delta.epm = mean(delta.epm),
             avg.delta.oepm = mean(delta.oepm),
@@ -242,10 +247,37 @@ dfm = dfm %>% select(-oldtm, -newtm, -old.yr, -new.yr, -delta.epm, -delta.oepm, 
 # build the model
 m.full = lm(new.epm ~ . -nba_id -name -old.oepm -new.oepm -old.depm -new.depm, data = dfm)
 summary(m.full)
-m.empty = lm(new.epm ~ old.epm, data = dfm)
+m.empty = lm(new.epm ~ old.epm, data = df)
 summary(m.empty)
 
 
-ggplot(dfm, aes(x = old.epm, y = new.epm)) +
-  geom_point() +
-  geom_abline(intercept = -0.80457, slope = 0.57585, color = "red")
+# DATA VISUALIZATION
+
+  # column chart that plots avg.delta.epm for each team
+  # 4 quadrant chart, maybe offensive and defensive floor raising as the axes
+
+# plot change in offensive EPM vs change in defensive EPM for every team
+ggplot(otp, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
+  geom_point(color = "#3333FF") +
+  geom_text(aes(label = newtm)) +
+  geom_vline(xintercept = mean(otp$avg.delta.oepm)) +
+  geom_hline(yintercept = mean(otp$avg.delta.depm)) +
+  xlim(mean(otp$avg.delta.oepm) - 0.75, mean(otp$avg.delta.oepm) + 0.75) +
+  ylim(mean(otp$avg.delta.depm) - 0.75, mean(otp$avg.delta.depm) + 0.75) +
+  labs(title = "4 Quadrants of Floor Raising",
+       x = "Average Change in Offensive EPM", y = "Average Change in Defensive EPM") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# plot new EPMs vs old EPMs
+ggplot(df, aes(x = old.epm, y = new.epm)) +
+  geom_point(color = "#3333FF") +
+  geom_smooth(method = "lm", formula = y ~ x, color = "red", linewidth = 1.5, fullrange = TRUE) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  xlim(-10,10) + ylim(-10,10) +
+  labs(title = "Regression Towards the Mean for Moving Players", x = "Old EPM", y = "New EPM") +
+  theme(plot.title = element_text(hjust = 0.5))
+  # this shows that EPM tends to regress towards the center
+  # this trend is even more pronounced among players who move teams
+
+
+
