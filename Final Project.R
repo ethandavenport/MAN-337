@@ -239,4 +239,12 @@ dfm = cbind(df, ot_dummies, nt_dummies)
 dfm = dfm %>% select(-oldtm, -newtm, -old.yr, -new.yr, -delta.epm, -delta.oepm, -delta.depm)
 
 # build the model
-lm(new.epm ~ . -nba_id -name -old.oepm -new.oepm -old.depm -new.depm, data = dfm)
+m.full = lm(new.epm ~ . -nba_id -name -old.oepm -new.oepm -old.depm -new.depm, data = dfm)
+summary(m.full)
+m.empty = lm(new.epm ~ old.epm, data = dfm)
+summary(m.empty)
+
+
+ggplot(dfm, aes(x = old.epm, y = new.epm)) +
+  geom_point() +
+  geom_abline(intercept = -0.80457, slope = 0.57585, color = "red")
