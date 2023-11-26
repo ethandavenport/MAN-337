@@ -186,12 +186,57 @@ paths8 = paths8 %>% mutate(old.yr = 2014, new.yr = 2015) %>%
 
 # combine all path data sets
 df = rbind(paths1, paths2, paths3, paths4, paths5, paths6, paths7, paths8)
+df = df %>% mutate(delta.epm = new.epm - old.epm,
+                   delta.oepm = new.oepm - old.oepm,
+                   delta.depm = new.depm - old.depm)
 # check that the final data is clean
 df %>% is.na %>% sum
 
-# DATA MUNGING COMPLETE
 
-# ANALYSIS STAGE:
+
+# ANALYSIS
 # adjust for age? would be really difficult to collect data for that
 # compare offensive vs defensive EPMs
 # compare team effect on negative vs positive players
+
+# create subsets of players
+pp = df %>% filter(old.epm > 0) # positive players
+np = df %>% filter(old.epm < 0) # negative players
+pop = df %>% filter(old.oepm > 0) # positive offensive players
+nop = df %>% filter(old.depm < 0) # negative offensive players
+pdp = df %>% filter(old.depm > 0) # positive defensive players
+ndp = df %>% filter(old.depm < 0) # negative defensive players
+
+# rank teams by change in overall, offensive, or defensive EPM for some set of players
+df %>%
+  group_by(oldtm) %>%
+  summarize(avg.delta.epm = mean(delta.epm),
+            avg.delta.oepm = mean(delta.oepm),
+            avg.delta.depm = mean(delta.depm),
+            count = n()) %>%
+  arrange(desc(avg.delta.epm))
+  # every single team has an average decrease in EPM when acquiring a player
+  # who had a positive EPM the prior year for a different team
+  # explore this --
+
+  # appears easier to sustain positive defensive EPM than offensive EPM
+
+  # often, players get worse when moving teams
+
+pp %>% summarize(pos = prop(delta.epm > 0),
+                 neg = prop(delta.epm < 0))
+  # 77% of the time, a positive EPM player who goes to a new team sees a decrease in EPM
+
+np %>% summarize(pos = prop(delta.epm > 0),
+                 neg = prop(delta.epm < 0))
+  # This is compared to 49% of negative players who see a decrease in EPM on a new team
+  # The overall average is 57% of players see a decrease in EPM when moving teams
+
+# turn teams into dummy variables for building a model
+ot_dummies = model.matrix(~oldtm - 1, data = df)
+nt_dummies = model.matrix(~newtm - 1, data = df)
+dfm = cbind(df, ot_dummies, nt_dummies)
+dfm = dfm %>% select(-oldtm, -newtm, -old.yr, -new.yr, -delta.epm, -delta.oepm, -delta.depm)
+
+# build the model
+lm(new.epm ~ . -nba_id -name -old.oepm -new.oepm -old.depm -new.depm, data = dfm)
