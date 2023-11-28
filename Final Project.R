@@ -277,6 +277,16 @@ summary(m.empty)
   # 4 quadrant chart, maybe offensive and defensive floor raising as the axes
   # scroll through Kirk Goldsberry's instagram for inspiration
 
+test = test %>% arrange(desc(avg.delta.epm))
+
+ggplot(test, aes(x = newtm, y = avg.delta.epm)) +
+  geom_col() +
+  geom_image(aes(image=teamLogos), size = 0.045,
+             y = ifelse(test$avg.delta.epm > 0, test$avg.delta.epm + 0.05, test$avg.delta.epm - 0.05)) +
+  theme(axis.text.x = element_blank()) +
+  labs(title = "Overall Floor Raising", x = "", y = "Average Change in EPM") +
+  theme(plot.title = element_text(hjust = 0.5))
+
 # plot average change in EPM for all 30 NBA teams
 bar = barplot(height = otp$avg.delta.depm, names.arg = rep("", length(otp$newtm)),
               main = "Defensive Floor Raising", ylab = "Average Change in Defensive EPM",
