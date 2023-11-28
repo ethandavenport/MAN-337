@@ -2,6 +2,8 @@
 library(tidyverse)
 library(tidyr)
 library(mosaic)
+library(ggthemes)
+
 library(devtools)
 devtools::install_github("abresler/nbastatR")
 library(nbastatR)
@@ -215,17 +217,18 @@ ndp = df %>% filter(old.depm < 0) # negative defensive players
 
 # rank teams by change in overall, offensive, or defensive EPM for some set of players
 otp = df %>%
-  group_by(oldtm) %>%
+  group_by(newtm) %>%
   summarize(avg.delta.epm = mean(delta.epm),
             avg.delta.oepm = mean(delta.oepm),
             avg.delta.depm = mean(delta.depm),
             count = n()) %>%
-  arrange(desc(avg.delta.epm))
+  arrange(desc(avg.delta.depm))
   # every single team has an average decrease in EPM when acquiring a player
   # who had a positive EPM the prior year for a different team
   # explore this --
 
   # appears easier to sustain positive defensive EPM than offensive EPM
+  # positive offensive players are very likely to see offensive EPM decrease
 
   # often, players get worse when moving teams
 
@@ -237,6 +240,23 @@ np %>% summarize(pos = prop(delta.epm > 0),
                  neg = prop(delta.epm < 0))
   # This is compared to 49% of negative players who see a decrease in EPM on a new team
   # The overall average is 57% of players see a decrease in EPM when moving teams
+
+pop %>% summarize(pos = prop(delta.oepm > 0),
+                  neg = prop(delta.oepm < 0))
+  # 78% of the time, a positive offensive EPM player sees a decrease in offensive EPM
+
+pop %>% filter(delta.oepm < 0) %>% summarize(avg.drop = mean(delta.oepm))
+  # In fact, this average decrease in offensive EPM is by 1.75 points!!
+
+df %>% summarize(avg.change = mean(abs(delta.oepm)))
+  # A 'normal' change in offensive OEPM from year to year is 1.38 points
+  # Meaning a POP is likely to see a negative change 27% greater than the average
+
+nop %>% summarize(pos = prop(delta.oepm > 0),
+                  neg = prop(delta.oepm < 0))
+  # This is compared to 60% of negative players who see a decrease in EPM on a new team
+  # The overall average is 57% of players see a decrease in EPM when moving teams
+
 
 # turn teams into dummy variables for building a model
 ot_dummies = model.matrix(~oldtm - 1, data = df)
@@ -255,6 +275,17 @@ summary(m.empty)
 
   # column chart that plots avg.delta.epm for each team
   # 4 quadrant chart, maybe offensive and defensive floor raising as the axes
+  # scroll through Kirk Goldsberry's instagram for inspiration
+
+# plot average change in EPM for all 30 NBA teams
+bar = barplot(height = otp$avg.delta.depm, names.arg = rep("", length(otp$newtm)),
+              main = "Defensive Floor Raising", ylab = "Average Change in Defensive EPM",
+              col = "skyblue", las = 2, cex.names = 0.8,
+              ylim = c(min(otp$avg.delta.depm) - 0.1, max(otp$avg.delta.depm) + 0.1))
+
+# create the labels for this plot
+text(x = bar, y = otp$avg.delta.depm, labels = otp$newtm,
+     pos = ifelse(otp$avg.delta.depm >= 0, 3, 1), col = "black", cex = 0.8, offset = 0.5)
 
 # plot change in offensive EPM vs change in defensive EPM for every team
 ggplot(otp, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
@@ -266,7 +297,8 @@ ggplot(otp, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
   ylim(mean(otp$avg.delta.depm) - 0.75, mean(otp$avg.delta.depm) + 0.75) +
   labs(title = "4 Quadrants of Floor Raising",
        x = "Average Change in Offensive EPM", y = "Average Change in Defensive EPM") +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_fivethirtyeight()
 
 # plot new EPMs vs old EPMs
 ggplot(df, aes(x = old.epm, y = new.epm)) +
@@ -278,6 +310,13 @@ ggplot(df, aes(x = old.epm, y = new.epm)) +
   theme(plot.title = element_text(hjust = 0.5))
   # this shows that EPM tends to regress towards the center
   # this trend is even more pronounced among players who move teams
+
+# plot average change in OEPM for POPs compared to overall distribution
+ggplot(df) +
+  geom_density(aes(x = delta.oepm), linewidth = 1) +
+  geom_vline(aes(xintercept = -1.748658), col = "#00AA00", linewidth = 2) +
+  geom_text(aes(x = -2.8, y = 0.0, label = "18.9%"), vjust = -3, color = "red", size = 4) +
+  geom_text(aes(x = 0.8, y = 0.025, label = "81.1%"), vjust = -3, color = "red", size = 4)
 
 
 
