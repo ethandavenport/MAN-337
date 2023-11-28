@@ -3,6 +3,10 @@ library(tidyverse)
 library(tidyr)
 library(mosaic)
 library(ggthemes)
+library(Metrics)
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+library(ggimage)
 
 library(devtools)
 devtools::install_github("abresler/nbastatR")
@@ -264,11 +268,32 @@ nt_dummies = model.matrix(~newtm - 1, data = df)
 dfm = cbind(df, ot_dummies, nt_dummies)
 dfm = dfm %>% select(-oldtm, -newtm, -old.yr, -new.yr, -delta.epm, -delta.oepm, -delta.depm)
 
-# build the model
+# build and summarize models
 m.full = lm(new.epm ~ . -nba_id -name -old.oepm -new.oepm -old.depm -new.depm, data = dfm)
 summary(m.full)
 m.empty = lm(new.epm ~ old.epm, data = df)
 summary(m.empty)
+  # the full model is hardly better in-sample than the empty model -- KEEP IT SIMPLE
+
+# split data into training and testing sets
+set.seed(1)
+sample = sample(c(TRUE, FALSE), nrow(dfm), replace=TRUE, prob=c(0.75,0.25))
+train = dfm[sample, ]
+train = train %>% select(-nba_id, -name, -old.oepm, -new.oepm, -old.depm, -new.depm)
+test = dfm[!sample, ]
+test = test %>% select(-nba_id, -name, -old.oepm, -new.oepm, -old.depm, -new.depm)
+
+# now observe performance metrics on training and testing sets
+m.train = lm(new.epm ~ ., data = train)
+summary(m.train)
+predictions = predict(m.train, newdata = test)
+rmse(train$new.epm, m.train$fitted.values)
+rmse(test$new.epm, predictions)
+  # I thought this would be overfitting, but
+  # out-of-sample RMSE is only slightly worse than in-sample RMSE
+  # the true problem is that the full model is hardly better than the empty model to begin with
+
+
 
 
 # DATA VISUALIZATION
@@ -277,39 +302,37 @@ summary(m.empty)
   # 4 quadrant chart, maybe offensive and defensive floor raising as the axes
   # scroll through Kirk Goldsberry's instagram for inspiration
 
-test = test %>% arrange(desc(avg.delta.epm))
+# cbind data set to plot team logos
+test = otp
+test = test %>% arrange(newtm)
+NBA_Logos = read.csv("C:/Users/ethan/OneDrive/Fall 2023/MAN 337/NBA_Logos.csv")
+teamLogos = c(NBA_Logos$URI)
+test = cbind(test, teamLogos)
 
-ggplot(test, aes(x = newtm, y = avg.delta.epm)) +
-  geom_col() +
-  geom_image(aes(image=teamLogos), size = 0.045,
-             y = ifelse(test$avg.delta.epm > 0, test$avg.delta.epm + 0.05, test$avg.delta.epm - 0.05)) +
-  theme(axis.text.x = element_blank()) +
-  labs(title = "Overall Floor Raising", x = "", y = "Average Change in EPM") +
+# plot change in offensive EPM vs change in defensive EPM for every team
+ggplot(test, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
+  geom_image(aes(image= teamLogos), size = .05) +
+  geom_point(size = 0) +
+  geom_vline(xintercept = mean(test$avg.delta.oepm)) +
+  geom_hline(yintercept = mean(test$avg.delta.depm)) +
+  xlim(mean(test$avg.delta.oepm) - 0.75, mean(test$avg.delta.oepm) + 0.75) +
+  ylim(mean(test$avg.delta.depm) - 0.75, mean(test$avg.delta.depm) + 0.75) +
+  labs(title = "4 Quadrants of Floor Raising",
+       x = "Average Change in Offensive EPM", y = "Average Change in Defensive EPM") +
   theme(plot.title = element_text(hjust = 0.5))
 
 # plot average change in EPM for all 30 NBA teams
-bar = barplot(height = otp$avg.delta.depm, names.arg = rep("", length(otp$newtm)),
-              main = "Defensive Floor Raising", ylab = "Average Change in Defensive EPM",
-              col = "skyblue", las = 2, cex.names = 0.8,
-              ylim = c(min(otp$avg.delta.depm) - 0.1, max(otp$avg.delta.depm) + 0.1))
+test = test %>% arrange(desc(avg.delta.depm)) %>% mutate(newtm = factor(newtm, levels = newtm))
 
-# create the labels for this plot
-text(x = bar, y = otp$avg.delta.depm, labels = otp$newtm,
-     pos = ifelse(otp$avg.delta.depm >= 0, 3, 1), col = "black", cex = 0.8, offset = 0.5)
-
-# plot change in offensive EPM vs change in defensive EPM for every team
-ggplot(otp, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
-  geom_point(color = "#3333FF") +
-  geom_text(aes(label = newtm)) +
-  geom_vline(xintercept = mean(otp$avg.delta.oepm)) +
-  geom_hline(yintercept = mean(otp$avg.delta.depm)) +
-  xlim(mean(otp$avg.delta.oepm) - 0.75, mean(otp$avg.delta.oepm) + 0.75) +
-  ylim(mean(otp$avg.delta.depm) - 0.75, mean(otp$avg.delta.depm) + 0.75) +
-  labs(title = "4 Quadrants of Floor Raising",
-       x = "Average Change in Offensive EPM", y = "Average Change in Defensive EPM") +
+ggplot(test, aes(x = newtm, y = avg.delta.depm)) +
+  geom_col() +
+  geom_image(aes(image=teamLogos), size = 0.05,
+             y = ifelse(test$avg.delta.depm > 0, test$avg.delta.depm + 0.05, test$avg.delta.depm - 0.05)) +
+  theme(axis.text.x = element_blank()) +
+  labs(title = "Defensive Floor Raising", x = "", y = "Average Change in Defensive EPM") +
   theme(plot.title = element_text(hjust = 0.5)) +
-  theme_fivethirtyeight()
-
+  ylim(min(test$avg.delta.depm) - 0.1, max(test$avg.delta.depm) + 0.1)
+  
 # plot new EPMs vs old EPMs
 ggplot(df, aes(x = old.epm, y = new.epm)) +
   geom_point(color = "#3333FF") +
@@ -324,9 +347,41 @@ ggplot(df, aes(x = old.epm, y = new.epm)) +
 # plot average change in OEPM for POPs compared to overall distribution
 ggplot(df) +
   geom_density(aes(x = delta.oepm), linewidth = 1) +
-  geom_vline(aes(xintercept = -1.748658), col = "#00AA00", linewidth = 2) +
-  geom_text(aes(x = -2.8, y = 0.0, label = "18.9%"), vjust = -3, color = "red", size = 4) +
-  geom_text(aes(x = 0.8, y = 0.025, label = "81.1%"), vjust = -3, color = "red", size = 4)
+  geom_vline(aes(xintercept = -1.748658), linetype = "dashed", col = "#00AA00", linewidth = 1.5) +
+  geom_text(aes(x = -2.8, y = 0.0, label = "18.9%"), vjust = -3, color = "red", size = 6) +
+  geom_text(aes(x = 0.8, y = 0.025, label = "81.1%"), vjust = -3, color = "red", size = 6)
 
+ggplot() +
+  geom_density(aes(x = delta.oepm), data = pop, linewidth = 1) +
+  geom_density(aes(x = delta.oepm), data = nop, linewidth = 1) +
+  geom_vline(aes(xintercept = -1.748658), col = "#00AA00", linewidth = 2)
 
+# just for fun:
+# plot the best player increases over the last 10 years
+df = df %>% arrange(desc(avg.delta.epm)) %>% mutate(newtm = factor(newtm, levels = newtm))
+
+epm_indiv = df %>% select(-nba_id, -old.oepm, -new.oepm, -old.depm, -new.depm) %>%
+  arrange(desc(delta.epm)) %>% head(5)
+df %>% select(name, oldtm, old.yr, newtm, new.yr, old.oepm, new.oepm, delta.oepm) %>%
+  arrange(desc(delta.oepm)) %>% head(5)
+df %>% select(name, oldtm, old.yr, newtm, new.yr, old.depm, new.depm, delta.depm) %>%
+  arrange(desc(delta.depm)) %>% head(5)
+
+epm_indiv = epm_indiv %>% arrange(desc(delta.epm)) %>%
+  mutate(newtm = factor(newtm, levels = newtm)) %>%
+  mutate(newtm = factor(oldtm, levels = oldtm))
+
+ggplot(epm_indiv) +
+  geom_point(aes(x = name, y = old.epm)) + #WHY IS IT PLOTTING THESE IN THE WRONG ORDER
+  geom_point(aes(x = name, y = new.epm)) +
+  geom_segment(aes(x = 1 , y = old.epm[1], xend = 1, yend = new.epm[1])) +
+  geom_segment(aes(x = 2 , y = old.epm[2], xend = 2, yend = new.epm[2])) +
+  geom_segment(aes(x = 3 , y = old.epm[3], xend = 3, yend = new.epm[3])) +
+  geom_segment(aes(x = 4 , y = old.epm[4], xend = 4, yend = new.epm[4])) +
+  geom_segment(aes(x = 5 , y = old.epm[5], xend = 5, yend = new.epm[5])) +
+  ylim(-10,10) +
+  labs(title = "Best Increases in EPM", x = "Player", y = "EPM values") +
+  theme(plot.title = element_text(hjust = 0.5))
+  
+  
 
