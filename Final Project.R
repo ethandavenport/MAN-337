@@ -311,7 +311,7 @@ test = cbind(test, teamLogos)
 
 # plot change in offensive EPM vs change in defensive EPM for every team
 ggplot(test, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
-  geom_image(aes(image= teamLogos), size = .05) +
+  geom_image(aes(image= teamLogos), size = .065) +
   geom_point(size = 0) +
   geom_vline(xintercept = mean(test$avg.delta.oepm)) +
   geom_hline(yintercept = mean(test$avg.delta.depm)) +
@@ -322,16 +322,16 @@ ggplot(test, aes(x = avg.delta.oepm, y = avg.delta.depm)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 # plot average change in EPM for all 30 NBA teams
-test = test %>% arrange(desc(avg.delta.depm)) %>% mutate(newtm = factor(newtm, levels = newtm))
+test = test %>% arrange(desc(avg.delta.epm)) %>% mutate(newtm = factor(newtm, levels = newtm))
 
-ggplot(test, aes(x = newtm, y = avg.delta.depm)) +
+ggplot(test, aes(x = newtm, y = avg.delta.epm)) +
   geom_col() +
   geom_image(aes(image=teamLogos), size = 0.05,
-             y = ifelse(test$avg.delta.depm > 0, test$avg.delta.depm + 0.05, test$avg.delta.depm - 0.05)) +
+             y = ifelse(test$avg.delta.epm > 0, test$avg.delta.epm + 0.05, test$avg.delta.epm - 0.05)) +
   theme(axis.text.x = element_blank()) +
-  labs(title = "Defensive Floor Raising", x = "", y = "Average Change in Defensive EPM") +
+  labs(title = "Overall Floor Raising", x = "", y = "Average Change in EPM") +
   theme(plot.title = element_text(hjust = 0.5)) +
-  ylim(min(test$avg.delta.depm) - 0.1, max(test$avg.delta.depm) + 0.1)
+  ylim(min(test$avg.delta.epm) - 0.1, max(test$avg.delta.epm) + 0.1)
   
 # plot new EPMs vs old EPMs
 ggplot(df, aes(x = old.epm, y = new.epm)) +
@@ -357,20 +357,23 @@ ggplot() +
   geom_vline(aes(xintercept = -1.748658), col = "#00AA00", linewidth = 2)
 
 # just for fun:
-# plot the best player increases over the last 10 years
-df = df %>% arrange(desc(avg.delta.epm)) %>% mutate(newtm = factor(newtm, levels = newtm))
-
-epm_indiv = df %>% select(-nba_id, -old.oepm, -new.oepm, -old.depm, -new.depm) %>%
+# find the best player increases over the last 10 years
+df %>% select(-nba_id, -old.oepm, -new.oepm, -old.depm, -new.depm) %>%
   arrange(desc(delta.epm)) %>% head(5)
 df %>% select(name, oldtm, old.yr, newtm, new.yr, old.oepm, new.oepm, delta.oepm) %>%
   arrange(desc(delta.oepm)) %>% head(5)
 df %>% select(name, oldtm, old.yr, newtm, new.yr, old.depm, new.depm, delta.depm) %>%
   arrange(desc(delta.depm)) %>% head(5)
 
-epm_indiv = epm_indiv %>% arrange(desc(delta.epm)) %>%
-  mutate(newtm = factor(newtm, levels = newtm)) %>%
-  mutate(newtm = factor(oldtm, levels = oldtm))
+# find the worst player decreases over the last 10 years
+df %>% select(-nba_id, -old.oepm, -new.oepm, -old.depm, -new.depm) %>%
+  arrange(delta.epm) %>% head(5)
+df %>% select(name, oldtm, old.yr, newtm, new.yr, old.oepm, new.oepm, delta.oepm) %>%
+  arrange(delta.oepm) %>% head(5)
+df %>% select(name, oldtm, old.yr, newtm, new.yr, old.depm, new.depm, delta.depm) %>%
+  arrange(delta.depm) %>% head(5)
 
+# plot these increases and decreases
 ggplot(epm_indiv) +
   geom_point(aes(x = name, y = old.epm)) + #WHY IS IT PLOTTING THESE IN THE WRONG ORDER
   geom_point(aes(x = name, y = new.epm)) +
